@@ -8,31 +8,19 @@ from tqdm import tqdm
 from constants import DT, START_ARM_POSE, TASK_CONFIGS
 from constants import MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE, PUPPET_GRIPPER_JOINT_OPEN
 from robot_utils import Recorder, ImageRecorder, get_arm_gripper_positions
-from robot_utils import move_arms, torque_on, torque_off, move_grippers
+from robot_utils import move_arms#, torque_on, torque_off, move_grippers
 from real_env import make_real_env, get_action
 
-from interbotix_xs_modules.arm import InterbotixManipulatorXS
-
-import IPython
-e = IPython.embed
-
+from interbotix import InterbotixManipulatorXS
 
 def opening_ceremony(master_bot_left, master_bot_right, puppet_bot_left, puppet_bot_right):
     """ Move all 4 robots to a pose where it is easy to start demonstration """
-    # reboot gripper motors, and set operating modes for all motors
-    puppet_bot_left.dxl.robot_reboot_motors("single", "gripper", True)
-    puppet_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
-    puppet_bot_left.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
-    master_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
-    master_bot_left.dxl.robot_set_operating_modes("single", "gripper", "position")
-    # puppet_bot_left.dxl.robot_set_motor_registers("single", "gripper", 'current_limit', 1000) # TODO(tonyzhaozh) figure out how to set this limit
 
-    puppet_bot_right.dxl.robot_reboot_motors("single", "gripper", True)
+    puppet_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
+    master_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
+
     puppet_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
-    puppet_bot_right.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
     master_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
-    master_bot_right.dxl.robot_set_operating_modes("single", "gripper", "position")
-    # puppet_bot_left.dxl.robot_set_motor_registers("single", "gripper", 'current_limit', 1000) # TODO(tonyzhaozh) figure out how to set this limit
 
     torque_on(puppet_bot_left)
     torque_on(master_bot_left)
@@ -48,8 +36,7 @@ def opening_ceremony(master_bot_left, master_bot_right, puppet_bot_left, puppet_
 
     # press gripper to start data collection
     # disable torque for only gripper joint of master robot to allow user movement
-    master_bot_left.dxl.robot_torque_enable("single", "gripper", False)
-    master_bot_right.dxl.robot_torque_enable("single", "gripper", False)
+
     print(f'Close the gripper to start')
     close_thresh = -0.3
     pressed = False
@@ -63,16 +50,19 @@ def opening_ceremony(master_bot_left, master_bot_right, puppet_bot_left, puppet_
     torque_off(master_bot_right)
     print(f'Started!')
 
-
 def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_name, overwrite):
     print(f'Dataset name: {dataset_name}')
+    
+    print("Init env")
+    env = make_real_env(init_node=True, setup_robots=False)
 
     # source of data
-    master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                              robot_name=f'master_left', init_node=True)
-    master_bot_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                               robot_name=f'master_right', init_node=False)
-    env = make_real_env(init_node=False, setup_robots=False)
+    # master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+    #                                           robot_name=f'master_left', init_node=True)
+    # master_bot_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+    #                                            robot_name=f'master_right', init_node=False)
+    
+    print(f'Finish make_real_env')
 
     # saving dataset
     if not os.path.isdir(dataset_dir):
@@ -83,16 +73,19 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
         exit()
 
     # move all 4 robots to a starting pose where it is easy to start teleoperation, then wait till both gripper closed
-    opening_ceremony(master_bot_left, master_bot_right, env.puppet_bot_left, env.puppet_bot_right)
+    # opening_ceremony(master_bot_left, master_bot_right, env.puppet_bot_left, env.puppet_bot_right)
 
     # Data collection
     ts = env.reset(fake=True)
+
+    print("Start data collection")
     timesteps = [ts]
     actions = []
     actual_dt_history = []
     for t in tqdm(range(max_timesteps)):
         t0 = time.time() #
-        action = get_action(master_bot_left, master_bot_right)
+        # action = get_action(master_bot_left, master_bot_right)
+        action = np.zeros(7)
         t1 = time.time() #
         ts = env.step(action)
         t2 = time.time() #
@@ -101,10 +94,10 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
         actual_dt_history.append([t0, t1, t2])
 
     # Torque on both master bots
-    torque_on(master_bot_left)
-    torque_on(master_bot_right)
+    # torque_on(master_bot_left)
+    # torque_on(master_bot_right)
     # Open puppet grippers
-    move_grippers([env.puppet_bot_left, env.puppet_bot_right], [PUPPET_GRIPPER_JOINT_OPEN] * 2, move_time=0.5)
+    # move_grippers([env.puppet_bot_left, env.puppet_bot_right], [PUPPET_GRIPPER_JOINT_OPEN] * 2, move_time=0.5)
 
     freq_mean = print_dt_diagnosis(actual_dt_history)
     if freq_mean < 42:
@@ -118,10 +111,11 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
         - cam_low           (480, 640, 3) 'uint8'
         - cam_left_wrist    (480, 640, 3) 'uint8'
         - cam_right_wrist   (480, 640, 3) 'uint8'
-    - qpos                  (14,)         'float64'
-    - qvel                  (14,)         'float64'
+    - qpos                  (7,)         'float64'
+    - qvel                  (7,)         'float64'
+    - effort                (7,)         'float64'
     
-    action                  (14,)         'float64'
+    action                  (7,)         'float64'
     """
 
     data_dict = {
@@ -133,6 +127,7 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
     for cam_name in camera_names:
         data_dict[f'/observations/images/{cam_name}'] = []
 
+    print("Compose data_dict")
     # len(action): max_timesteps, len(time_steps): max_timesteps + 1
     while actions:
         action = actions.pop(0)
@@ -144,6 +139,7 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
         for cam_name in camera_names:
             data_dict[f'/observations/images/{cam_name}'].append(ts.observation['images'][cam_name])
 
+    print("Compose HDF5")
     # HDF5
     t0 = time.time()
     with h5py.File(dataset_path + '.hdf5', 'w', rdcc_nbytes=1024**2*2) as root:
@@ -155,17 +151,22 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
                                      chunks=(1, 480, 640, 3), )
             # compression='gzip',compression_opts=2,)
             # compression=32001, compression_opts=(0, 0, 0, 0, 9, 1, 1), shuffle=False)
-        _ = obs.create_dataset('qpos', (max_timesteps, 14))
-        _ = obs.create_dataset('qvel', (max_timesteps, 14))
-        _ = obs.create_dataset('effort', (max_timesteps, 14))
-        _ = root.create_dataset('action', (max_timesteps, 14))
+        _ = obs.create_dataset('qpos', (max_timesteps, 7))
+        _ = obs.create_dataset('qvel', (max_timesteps, 7))
+        _ = obs.create_dataset('effort', (max_timesteps, 7))
+        _ = root.create_dataset('action', (max_timesteps, 7))
 
         for name, array in data_dict.items():
-            root[name][...] = array
+            try:
+                root[name][...] = array
+            except TypeError as e:
+                print("Error occurred while setting value for name:", name)
+                print("Error message:", e)
+                # Optionally, you can raise the error again to propagate it further
+                exit(1)
     print(f'Saving: {time.time() - t0:.1f} secs')
 
     return True
-
 
 def main(args):
     task_config = TASK_CONFIGS[args['task_name']]
@@ -186,7 +187,6 @@ def main(args):
         if is_healthy:
             break
 
-
 def get_auto_index(dataset_dir, dataset_name_prefix = '', data_suffix = 'hdf5'):
     max_idx = 1000
     if not os.path.isdir(dataset_dir):
@@ -195,7 +195,6 @@ def get_auto_index(dataset_dir, dataset_name_prefix = '', data_suffix = 'hdf5'):
         if not os.path.isfile(os.path.join(dataset_dir, f'{dataset_name_prefix}episode_{i}.{data_suffix}')):
             return i
     raise Exception(f"Error getting auto index, or more than {max_idx} episodes")
-
 
 def print_dt_diagnosis(actual_dt_history):
     actual_dt_history = np.array(actual_dt_history)

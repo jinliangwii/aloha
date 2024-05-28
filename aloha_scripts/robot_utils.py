@@ -3,9 +3,6 @@ import time
 from constants import DT
 from interbotix_xs_msgs.msg import JointSingleCommand
 
-import IPython
-e = IPython.embed
-
 class ImageRecorder:
     def __init__(self, init_node=True, is_debug=False):
         from collections import deque
@@ -93,7 +90,7 @@ class Recorder:
 
         if init_node:
             rospy.init_node('recorder', anonymous=True)
-        rospy.Subscriber(f"/puppet_{side}/joint_states", JointState, self.puppet_state_cb)
+        rospy.Subscriber(f"/joint_states", JointState, self.puppet_state_cb)
         rospy.Subscriber(f"/puppet_{side}/commands/joint_group", JointGroupCommand, self.puppet_arm_commands_cb)
         rospy.Subscriber(f"/puppet_{side}/commands/joint_single", JointSingleCommand, self.puppet_gripper_commands_cb)
         if self.is_debug:
@@ -160,28 +157,30 @@ def move_grippers(bot_list, target_pose_list, move_time):
         time.sleep(DT)
 
 def setup_puppet_bot(bot):
-    bot.dxl.robot_reboot_motors("single", "gripper", True)
-    bot.dxl.robot_set_operating_modes("group", "arm", "position")
-    bot.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
-    torque_on(bot)
+    print("setup_puppet_bot")
+#     bot.dxl.robot_reboot_motors("single", "gripper", True)
+#     bot.dxl.robot_set_operating_modes("group", "arm", "position")
+#     bot.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
+#     torque_on(bot)
 
 def setup_master_bot(bot):
-    bot.dxl.robot_set_operating_modes("group", "arm", "pwm")
-    bot.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
-    torque_off(bot)
+    print("setup_master_bot")
+#     bot.dxl.robot_set_operating_modes("group", "arm", "pwm")
+#     bot.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
+#     torque_off(bot)
 
-def set_standard_pid_gains(bot):
-    bot.dxl.robot_set_motor_registers("group", "arm", 'Position_P_Gain', 800)
-    bot.dxl.robot_set_motor_registers("group", "arm", 'Position_I_Gain', 0)
+# def set_standard_pid_gains(bot):
+#     bot.dxl.robot_set_motor_registers("group", "arm", 'Position_P_Gain', 800)
+#     bot.dxl.robot_set_motor_registers("group", "arm", 'Position_I_Gain', 0)
 
-def set_low_pid_gains(bot):
-    bot.dxl.robot_set_motor_registers("group", "arm", 'Position_P_Gain', 100)
-    bot.dxl.robot_set_motor_registers("group", "arm", 'Position_I_Gain', 0)
+# def set_low_pid_gains(bot):
+#     bot.dxl.robot_set_motor_registers("group", "arm", 'Position_P_Gain', 100)
+#     bot.dxl.robot_set_motor_registers("group", "arm", 'Position_I_Gain', 0)
 
-def torque_off(bot):
-    bot.dxl.robot_torque_enable("group", "arm", False)
-    bot.dxl.robot_torque_enable("single", "gripper", False)
+# def torque_off(bot):
+#     bot.dxl.robot_torque_enable("group", "arm", False)
+#     bot.dxl.robot_torque_enable("single", "gripper", False)
 
-def torque_on(bot):
-    bot.dxl.robot_torque_enable("group", "arm", True)
-    bot.dxl.robot_torque_enable("single", "gripper", True)
+# def torque_on(bot):
+#     bot.dxl.robot_torque_enable("group", "arm", True)
+#     bot.dxl.robot_torque_enable("single", "gripper", True)

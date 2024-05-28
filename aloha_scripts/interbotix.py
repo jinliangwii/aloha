@@ -4,6 +4,9 @@ import numpy as np
 import copy
 import threading
 import sys
+from interbotix_xs_msgs.msg import *
+from interbotix_xs_msgs.srv import *
+from sensor_msgs.msg import JointState
 
 ### @brief Standalone Module to control an Interbotix Arm and Gripper
 ### @param robot_model - Interbotix Arm model (ex. 'wx200' or 'vx300s')
@@ -19,10 +22,14 @@ import sys
 ### @param init_node - set to True if the InterbotixRobotXSCore class should initialize the ROS node - this is the most Pythonic approach; to incorporate a robot into an existing ROS node though, set to False
 class InterbotixManipulatorXS(object):
     def __init__(self, robot_model, group_name="arm", gripper_name=None, robot_name=None, moving_time=2.0, accel_time=0.3, gripper_pressure=0.5, gripper_pressure_lower_limit=150, gripper_pressure_upper_limit=350, init_node=True):
+        
+        print("Init InterbotixRobotXSCore")
         self.dxl = InterbotixRobotXSCore(robot_model, robot_name, init_node)
+        
+        print("Init InterbotixArmXSInterface")
         self.arm = InterbotixArmXSInterface(self.dxl, robot_model, group_name, moving_time, accel_time)
-        if gripper_name is not None:
-            self.gripper = InterbotixGripperXSInterface(self.dxl, gripper_name, gripper_pressure, gripper_pressure_lower_limit, gripper_pressure_upper_limit)
+        # if gripper_name is not None:
+            # self.gripper = InterbotixGripperXSInterface(self.dxl, gripper_name, gripper_pressure, gripper_pressure_lower_limit, gripper_pressure_upper_limit)
 
 
 ### @brief Definition of the Interbotix Arm Module
@@ -35,27 +42,27 @@ class InterbotixArmXSInterface(object):
 
     def __init__(self, core, robot_model, group_name, moving_time=2.0, accel_time=0.3):
         self.core = core
-        self.group_info = self.core.srv_get_info("group", group_name)
-        if (self.group_info.profile_type != "time"):
-            rospy.logerr("Please set the group's 'profile type' to 'time'.")
-        if (self.group_info.mode != "position"):
-            rospy.logerr("Please set the group's 'operating mode' to 'position'.")
-        self.robot_des = getattr(mrd, robot_model)
-        self.initial_guesses = [[0.0] * self.group_info.num_joints for i in range(3)]
-        self.initial_guesses[1][0] = np.deg2rad(-120)
-        self.initial_guesses[2][0] = np.deg2rad(120)
+        # self.group_info = self.core.srv_get_info("group", group_name)
+        # if (self.group_info.profile_type != "time"):
+            # rospy.logerr("Please set the group's 'profile type' to 'time'.")
+        # if (self.group_info.mode != "position"):
+            # rospy.logerr("Please set the group's 'operating mode' to 'position'.")
+        # self.robot_des = getattr(mrd, robot_model)
+        # self.initial_guesses = [[0.0] * self.group_info.num_joints for i in range(3)]
+        # self.initial_guesses[1][0] = np.deg2rad(-120)
+        # self.initial_guesses[2][0] = np.deg2rad(120)
         self.moving_time = None
         self.accel_time = None
         self.group_name = group_name
         self.joint_commands = []
         self.rev = 2 * math.pi
-        for name in self.group_info.joint_names:
-            self.joint_commands.append(self.core.joint_states.position[self.core.js_index_map[name]])
-        self.T_sb = mr.FKinSpace(self.robot_des.M, self.robot_des.Slist, self.joint_commands)
+        # for name in self.group_info.joint_names:
+            # self.joint_commands.append(self.core.joint_states.position[self.core.js_index_map[name]])
+        # self.T_sb = mr.FKinSpace(self.robot_des.M, self.robot_des.Slist, self.joint_commands)
         self.set_trajectory_time(moving_time, accel_time)
-        self.info_index_map = dict(zip(self.group_info.joint_names, range(self.group_info.num_joints)))
+        # self.info_index_map = dict(zip(self.group_info.joint_names, range(self.group_info.num_joints)))
         print("Arm Group Name: %s\nMoving Time: %.2f seconds\nAcceleration Time: %.2f seconds\nDrive Mode: Time-Based-Profile" % (group_name, moving_time, accel_time))
-        print("Initialized InterbotixArmXSInterface!\n")
+        print("Initialized InterbotixArmXSInterface!")
 
     ### @brief Helper function to publish joint positions and block if necessary
     ### @param positions - desired joint positions
@@ -63,52 +70,54 @@ class InterbotixArmXSInterface(object):
     ### @param accel_time - duration in seconds that that robot should spend accelerating/decelerating (must be less than or equal to half the moving_time)
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     def publish_positions(self, positions, moving_time=None, accel_time=None, blocking=True):
-        self.set_trajectory_time(moving_time, accel_time)
-        self.joint_commands = list(positions)
-        joint_commands = JointGroupCommand(self.group_name, self.joint_commands)
-        self.core.pub_group.publish(joint_commands)
-        if blocking:
-            rospy.sleep(self.moving_time)
-        self.T_sb = mr.FKinSpace(self.robot_des.M, self.robot_des.Slist, self.joint_commands)
+        # self.set_trajectory_time(moving_time, accel_time)
+        # self.joint_commands = list(positions)
+        # joint_commands = JointGroupCommand(self.group_name, self.joint_commands)
+        # self.core.pub_group.publish(joint_commands)
+        # if blocking:
+        #     rospy.sleep(self.moving_time)
+        # self.T_sb = mr.FKinSpace(self.robot_des.M, self.robot_des.Slist, self.joint_commands)
+        print("publish_positions")
 
     ### @brief Helper function to command the 'Profile_Velocity' and 'Profile_Acceleration' motor registers
     ### @param moving_time - duration in seconds that the robot should move
     ### @param accel_time - duration in seconds that that robot should spend accelerating/decelerating (must be less than or equal to half the moving_time)
     def set_trajectory_time(self, moving_time=None, accel_time=None):
-        if (moving_time is not None and moving_time != self.moving_time):
-            self.moving_time = moving_time
-            self.core.srv_set_reg(cmd_type="group", name=self.group_name, reg="Profile_Velocity", value=int(moving_time * 1000))
-        if (accel_time is not None and accel_time != self.accel_time):
-            self.accel_time = accel_time
-            self.core.srv_set_reg(cmd_type="group", name=self.group_name, reg="Profile_Acceleration", value=int(accel_time * 1000))
+        # if (moving_time is not None and moving_time != self.moving_time):
+        #     self.moving_time = moving_time
+        #     self.core.srv_set_reg(cmd_type="group", name=self.group_name, reg="Profile_Velocity", value=int(moving_time * 1000))
+        # if (accel_time is not None and accel_time != self.accel_time):
+        #     self.accel_time = accel_time
+        #     self.core.srv_set_reg(cmd_type="group", name=self.group_name, reg="Profile_Acceleration", value=int(accel_time * 1000))
+        print("set_trajectory_time")
 
     ### @brief Helper function to check to make sure the desired arm group's joint positions are all within their respective joint limits
     ### @param positions - the positions [rad] to check
     ### @return <bool> - True if all positions are within limits; False otherwise
     def check_joint_limits(self, positions):
-        theta_list = [int(elem * 1000)/1000.0 for elem in positions]
-        speed_list = [abs(goal - current)/float(self.moving_time) for goal,current in zip(theta_list, self.joint_commands)]
+        # theta_list = [int(elem * 1000)/1000.0 for elem in positions]
+        # speed_list = [abs(goal - current)/float(self.moving_time) for goal,current in zip(theta_list, self.joint_commands)]
         # check position and velocity limits
-        for x in range(self.group_info.num_joints):
-            if not (self.group_info.joint_lower_limits[x] <= theta_list[x] <= self.group_info.joint_upper_limits[x]):
-                rospy.logwarn(
-                    "Would exceed position limits on joint %s." % x
-                )
-                rospy.logwarn(
-                    "Limits are [%f, %f], value was %f." %
-                    (self.group_info.joint_lower_limits[x],
-                    self.group_info.joint_upper_limits[x], theta_list[x])
-                )
-                return False
-            if (speed_list[x] > self.group_info.joint_velocity_limits[x]):
-                rospy.logwarn(
-                    "Would exceed velocity limits on joint %s." % x
-                )
-                rospy.logwarn(
-                    "Limit is %f, value was %f." %
-                    (self.group_info.joint_velocity_limits[x], theta_list[x])
-                )
-                return False
+        # for x in range(self.group_info.num_joints):
+        #     if not (self.group_info.joint_lower_limits[x] <= theta_list[x] <= self.group_info.joint_upper_limits[x]):
+        #         rospy.logwarn(
+        #             "Would exceed position limits on joint %s." % x
+        #         )
+        #         rospy.logwarn(
+        #             "Limits are [%f, %f], value was %f." %
+        #             (self.group_info.joint_lower_limits[x],
+        #             self.group_info.joint_upper_limits[x], theta_list[x])
+        #         )
+        #         return False
+        #     if (speed_list[x] > self.group_info.joint_velocity_limits[x]):
+        #         rospy.logwarn(
+        #             "Would exceed velocity limits on joint %s." % x
+        #         )
+        #         rospy.logwarn(
+        #             "Limit is %f, value was %f." %
+        #             (self.group_info.joint_velocity_limits[x], theta_list[x])
+        #         )
+        #         return False
         return True
 
     ### @brief Helper function to check to make sure a desired position for a given joint is within its limits
@@ -117,14 +126,14 @@ class InterbotixArmXSInterface(object):
     ### @return <bool> - True if within limits; False otherwise
     def check_single_joint_limit(self, joint_name, position):
         theta = int(position * 1000)/1000.0
-        speed = abs(theta - self.joint_commands[self.info_index_map[joint_name]])/float(self.moving_time)
-        ll = self.group_info.joint_lower_limits[self.info_index_map[joint_name]]
-        ul = self.group_info.joint_upper_limits[self.info_index_map[joint_name]]
-        vl = self.group_info.joint_velocity_limits[self.info_index_map[joint_name]]
-        if not (ll <= theta <= ul):
-            return False
-        if speed > vl:
-            return False
+        # speed = abs(theta - self.joint_commands[self.info_index_map[joint_name]])/float(self.moving_time)
+        # ll = self.group_info.joint_lower_limits[self.info_index_map[joint_name]]
+        # ul = self.group_info.joint_upper_limits[self.info_index_map[joint_name]]
+        # vl = self.group_info.joint_velocity_limits[self.info_index_map[joint_name]]
+        # if not (ll <= theta <= ul):
+        #     return False
+        # if speed > vl:
+        #     return False
         return True
 
     ### @brief Command positions to the arm joints
@@ -134,25 +143,28 @@ class InterbotixArmXSInterface(object):
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     ### @return <bool> - True if position was commanded; False if it wasn't due to being outside limits
     def set_joint_positions(self, joint_positions, moving_time=None, accel_time=None, blocking=True):
-        if (self.check_joint_limits(joint_positions)):
-            self.publish_positions(joint_positions, moving_time, accel_time, blocking)
-            return True
-        else:
-            return False
+        return True
+        # if (self.check_joint_limits(joint_positions)):
+        #     self.publish_positions(joint_positions, moving_time, accel_time, blocking)
+        #     return True
+        # else:
+        #     return False
 
     ### @brief Command the arm to go to its Home pose
     ### @param moving_time - duration in seconds that the robot should move
     ### @param accel_time - duration in seconds that that robot should spend accelerating/decelerating (must be less than or equal to half the moving_time)
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     def go_to_home_pose(self, moving_time=None, accel_time=None, blocking=True):
-        self.publish_positions([0] * self.group_info.num_joints, moving_time, accel_time, blocking)
+        # self.publish_positions([0] * self.group_info.num_joints, moving_time, accel_time, blocking)
+        print("go_to_home_pose")
 
     ### @brief Command the arm to go to its Sleep pose
     ### @param moving_time - duration in seconds that the robot should move
     ### @param accel_time - duration in seconds that that robot should spend accelerating/decelerating (must be less than or equal to half the moving_time)
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     def go_to_sleep_pose(self, moving_time=None, accel_time=None, blocking=True):
-        self.publish_positions(self.group_info.joint_sleep_positions, moving_time, accel_time, blocking)
+        # self.publish_positions(self.group_info.joint_sleep_positions, moving_time, accel_time, blocking)
+        print("go_to_sleep_pose")
 
     ### @brief Command a single joint to a desired position
     ### @param joint_name - name of the joint to control
@@ -258,7 +270,9 @@ class InterbotixArmXSInterface(object):
     ### @param joint_name - joint for which to get the position
     ### @return - desired position [rad]
     def get_single_joint_command(self, joint_name):
-        return self.joint_commands[self.info_index_map[joint_name]]
+        # return self.joint_commands[self.info_index_map[joint_name]]
+        print("get_single_joint_command")
+        return [0.0]
 
     ### @brief Get the latest commanded end-effector pose w.r.t the Space frame
     ### @return <4x4 matrix> - Transformation matrix
@@ -296,6 +310,7 @@ class InterbotixRobotXSCore(object):
         if (self.robot_name is None):
             self.robot_name = robot_model
         if (init_node):
+            print("Init node")
             rospy.init_node(self.robot_name + "_robot_manipulation")
 
         # Try to find the xs_sdk services under the 'robot_name' namespace
@@ -329,8 +344,11 @@ class InterbotixRobotXSCore(object):
         # self.pub_group = rospy.Publisher("/" + self.robot_name + "/commands/joint_group", JointGroupCommand, queue_size=1)
         # self.pub_single = rospy.Publisher("/" + self.robot_name + "/commands/joint_single", JointSingleCommand, queue_size=1)
         # self.pub_traj = rospy.Publisher("/" + self.robot_name + "/commands/joint_trajectory", JointTrajectoryCommand, queue_size=1)
-        self.sub_joint_states = rospy.Subscriber("/" + self.robot_name + "/" + joint_state_topic, JointState, self.joint_state_cb)
-        while (self.joint_states == None and not rospy.is_shutdown()): pass
+        # self.sub_joint_states = rospy.Subscriber("/" + self.robot_name + "/" + joint_state_topic, JointState, self.joint_state_cb)
+        self.sub_joint_states = rospy.Subscriber("/" + joint_state_topic, JointState, self.joint_state_cb)
+        while (self.joint_states == None and not rospy.is_shutdown()): 
+            print("Waiting joint states populated.") 
+            rospy.sleep(0.2)
         self.js_index_map = dict(zip(self.joint_states.name, range(len(self.joint_states.name))))
         rospy.sleep(0.5)
         print("Robot Name: %s\nRobot Model: %s" % (self.robot_name, robot_model))
