@@ -11,8 +11,6 @@
   <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>interbotix_xs_msgs</build_depend>
-  <build_depend>interbotix_xsarm_control</build_depend>
   <build_depend>rosbag</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>tf2_ros</build_depend>
@@ -20,8 +18,6 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>std_srvs</build_depend>
-  <build_export_depend>interbotix_xs_msgs</build_export_depend>
-  <build_export_depend>interbotix_xsarm_control</build_export_depend>
   <build_export_depend>rosbag</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>tf2_ros</build_export_depend>
@@ -29,8 +25,6 @@
   <build_export_depend>sensor_msgs</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>std_srvs</build_export_depend>
-  <exec_depend>interbotix_xs_msgs</exec_depend>
-  <exec_depend>interbotix_xsarm_control</exec_depend>
   <exec_depend>rosbag</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
