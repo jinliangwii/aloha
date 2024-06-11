@@ -347,7 +347,7 @@ class InterbotixRobotXSCore(object):
         # self.sub_joint_states = rospy.Subscriber("/" + self.robot_name + "/" + joint_state_topic, JointState, self.joint_state_cb)
         self.sub_joint_states = rospy.Subscriber("/" + joint_state_topic, JointState, self.joint_state_cb)
         while (self.joint_states == None and not rospy.is_shutdown()): 
-            print("Waiting joint states populated.") 
+            print("InterbotixRobotXSCore::Init::Waiting joint states populated.") 
             rospy.sleep(0.2)
         self.js_index_map = dict(zip(self.joint_states.name, range(len(self.joint_states.name))))
         rospy.sleep(0.5)

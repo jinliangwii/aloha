@@ -38,13 +38,12 @@ class RealEnv:
         print("Init left puppet bot")
         self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
                                                        robot_name=f'puppet_left', init_node=init_node)
-        self.puppet_bot_right = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                        robot_name=f'puppet_right', init_node=False)
+        # self.puppet_bot_right = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
+                                                        # robot_name=f'puppet_right', init_node=False)
         if setup_robots:
             self.setup_robots()
 
-        self.recorder_left = Recorder('left', init_node=False)
-        # self.recorder_right = Recorder('right', init_node=False)
+        self.recorder = Recorder('left', init_node=False)
         self.image_recorder = ImageRecorder(init_node=False)
         # self.gripper_command = JointSingleCommand(name="gripper")
 
@@ -53,13 +52,13 @@ class RealEnv:
         # setup_puppet_bot(self.puppet_bot_right)
 
     def get_qpos(self):
-        return self.recorder_left.qpos
+        return self.recorder.qpos
 
     def get_qvel(self):
-        return self.recorder_left.qvel
+        return self.recorder.qvel
 
     def get_effort(self):
-        return self.recorder_left.effort
+        return self.recorder.effort
 
     def get_images(self):
         return self.image_recorder.get_images()
@@ -75,12 +74,12 @@ class RealEnv:
 
     def _reset_joints(self):
         reset_position = START_ARM_POSE[:6]
-        move_arms([self.puppet_bot_left, self.puppet_bot_right], [reset_position, reset_position], move_time=1)
+        # move_arms([self.puppet_bot_left, self.puppet_bot_right], [reset_position, reset_position], move_time=1)
 
     def _reset_gripper(self):
         """Set to position mode and do position resets: first open then close. Then change back to PWM mode"""
-        move_grippers([self.puppet_bot_left, self.puppet_bot_right], [PUPPET_GRIPPER_JOINT_OPEN] * 2, move_time=0.5)
-        move_grippers([self.puppet_bot_left, self.puppet_bot_right], [PUPPET_GRIPPER_JOINT_CLOSE] * 2, move_time=1)
+        # move_grippers([self.puppet_bot_left, self.puppet_bot_right], [PUPPET_GRIPPER_JOINT_OPEN] * 2, move_time=0.5)
+        # move_grippers([self.puppet_bot_left, self.puppet_bot_right], [PUPPET_GRIPPER_JOINT_CLOSE] * 2, move_time=1)
 
     def get_observation(self):
         obs = collections.OrderedDict()
@@ -108,11 +107,11 @@ class RealEnv:
             observation=self.get_observation())
 
     def step(self, action):
-        state_len = int(len(action) / 2)
-        left_action = action[:state_len]
-        right_action = action[state_len:]
-        self.puppet_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
-        self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
+        # state_len = int(len(action) / 2)
+        # left_action = action[:state_len]
+        # right_action = action[state_len:]
+        self.puppet_bot_left.arm.set_joint_positions(action, blocking=False)
+        # self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
         # self.set_gripper_pose(left_action[-1], right_action[-1])
         time.sleep(DT)
         return dm_env.TimeStep(
@@ -154,33 +153,33 @@ def test_real_teleop():
     render_cam = 'cam_left_wrist'
 
     # source of data
-    master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                              robot_name=f'master_left', init_node=True)
-    master_bot_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                               robot_name=f'master_right', init_node=False)
-    setup_master_bot(master_bot_left)
-    setup_master_bot(master_bot_right)
+    # master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+                                            #   robot_name=f'master_left', init_node=True)
+    # master_bot_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+                                            #    robot_name=f'master_right', init_node=False)
+    # setup_master_bot(master_bot_left)
+    # setup_master_bot(master_bot_right)
 
     # setup the environment
-    env = make_real_env(init_node=False)
+    env = make_real_env(init_node=True)
     ts = env.reset(fake=True)
     episode = [ts]
     # setup visualization
     if onscreen_render:
         ax = plt.subplot()
-        plt_img = ax.imshow(ts.observation['images'][render_cam])
-        plt.ion()
+        # plt_img = ax.imshow(ts.observation['images'][render_cam])
+        # plt.ion()
 
     for t in range(1000):
-        action = get_action(master_bot_left, master_bot_right)
-        ts = env.step(action)
+        # action = get_action(master_bot_left, master_bot_right)
+        ts = env.step([0, 0, 0 ,0 ,0 ,0, 0])
         episode.append(ts)
 
-        if onscreen_render:
-            plt_img.set_data(ts.observation['images'][render_cam])
-            plt.pause(DT)
-        else:
-            time.sleep(DT)
+        # if onscreen_render:
+            # plt_img.set_data(ts.observation['images'][render_cam])
+            # plt.pause(DT)
+        # else:
+            # time.sleep(DT)
 
 
 if __name__ == '__main__':
