@@ -5,7 +5,7 @@ TASK_CONFIGS = {
     'aloha_wear_shoe':{
         'dataset_dir': DATA_DIR + '/aloha_wear_shoe',
         'num_episodes': 50,
-        'episode_len': 5,
+        'episode_len': 50,
         'camera_names': ['cam_wrist']
     },
 }

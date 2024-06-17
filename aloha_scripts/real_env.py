@@ -150,7 +150,7 @@ def test_real_teleop():
     """
 
     onscreen_render = True
-    render_cam = 'cam_left_wrist'
+    render_cam = 'cam_wrist'
 
     # source of data
     # master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
@@ -165,8 +165,8 @@ def test_real_teleop():
     ts = env.reset(fake=True)
     episode = [ts]
     # setup visualization
-    if onscreen_render:
-        ax = plt.subplot()
+    # if onscreen_render:
+        # ax = plt.subplot()
         # plt_img = ax.imshow(ts.observation['images'][render_cam])
         # plt.ion()
 
@@ -175,11 +175,12 @@ def test_real_teleop():
         ts = env.step([0, 0, 0 ,0 ,0 ,0, 0])
         episode.append(ts)
 
-        # if onscreen_render:
+        if onscreen_render:
+            plt.imsave(f'frame_{t}.png', ts.observation['images'][render_cam])
             # plt_img.set_data(ts.observation['images'][render_cam])
             # plt.pause(DT)
-        # else:
-            # time.sleep(DT)
+        else:
+            time.sleep(DT)
 
 
 if __name__ == '__main__':

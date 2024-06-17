@@ -107,10 +107,7 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
     For each timestep:
     observations
     - images
-        - cam_high          (480, 640, 3) 'uint8'
-        - cam_low           (480, 640, 3) 'uint8'
-        - cam_left_wrist    (480, 640, 3) 'uint8'
-        - cam_right_wrist   (480, 640, 3) 'uint8'
+        - cam_wrist    (480, 848, 3) 'uint8'
     - qpos                  (7,)         'float64'
     - qvel                  (7,)         'float64'
     - effort                (7,)         'float64'
@@ -147,8 +144,8 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
         obs = root.create_group('observations')
         image = obs.create_group('images')
         for cam_name in camera_names:
-            _ = image.create_dataset(cam_name, (max_timesteps, 480, 640, 3), dtype='uint8',
-                                     chunks=(1, 480, 640, 3), )
+            _ = image.create_dataset(cam_name, (max_timesteps, 480, 848, 3), dtype='uint8',
+                                     chunks=(1, 480, 848, 3), )
             # compression='gzip',compression_opts=2,)
             # compression=32001, compression_opts=(0, 0, 0, 0, 9, 1, 1), shuffle=False)
         _ = obs.create_dataset('qpos', (max_timesteps, 7))
