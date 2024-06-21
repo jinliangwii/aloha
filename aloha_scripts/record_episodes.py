@@ -85,7 +85,7 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
     for t in tqdm(range(max_timesteps)):
         t0 = time.time() #
         # action = get_action(master_bot_left, master_bot_right)
-        action = np.zeros(7)
+        action = np.zeros(8)
         t1 = time.time() #
         ts = env.step(action)
         t2 = time.time() #
@@ -148,10 +148,10 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
                                      chunks=(1, 480, 848, 3), )
             # compression='gzip',compression_opts=2,)
             # compression=32001, compression_opts=(0, 0, 0, 0, 9, 1, 1), shuffle=False)
-        _ = obs.create_dataset('qpos', (max_timesteps, 7))
-        _ = obs.create_dataset('qvel', (max_timesteps, 7))
-        _ = obs.create_dataset('effort', (max_timesteps, 7))
-        _ = root.create_dataset('action', (max_timesteps, 7))
+        _ = obs.create_dataset('qpos', (max_timesteps, 8))
+        _ = obs.create_dataset('qvel', (max_timesteps, 8))
+        _ = obs.create_dataset('effort', (max_timesteps, 8))
+        _ = root.create_dataset('action', (max_timesteps, 8))
 
         for name, array in data_dict.items():
             try:
