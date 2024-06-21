@@ -170,13 +170,20 @@ def test_real_teleop():
         # plt_img = ax.imshow(ts.observation['images'][render_cam])
         # plt.ion()
 
-    for t in range(1000):
+    for t in range(100000):
         # action = get_action(master_bot_left, master_bot_right)
-        ts = env.step([0, 0, 0 ,0 ,0 ,0, 0])
+
+        if t % 2 == 0:
+            action = [0, 0, 0, 0, 0, 0, 0, 0]
+        else:
+            action = [0.5, 0, 0, 0, 0, 0, 0, 0]
+
+        ts = env.step(action)
         episode.append(ts)
 
         if onscreen_render:
-            plt.imsave(f'frame_{t}.png', ts.observation['images'][render_cam])
+            continue
+            # plt.imsave(f'frame_{t}.png', ts.observation['images'][render_cam])
             # plt_img.set_data(ts.observation['images'][render_cam])
             # plt.pause(DT)
         else:

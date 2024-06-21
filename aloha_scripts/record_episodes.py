@@ -13,43 +13,6 @@ from real_env import make_real_env, get_action
 
 from interbotix import InterbotixManipulatorXS
 
-def opening_ceremony(master_bot_left, master_bot_right, puppet_bot_left, puppet_bot_right):
-    """ Move all 4 robots to a pose where it is easy to start demonstration """
-
-    puppet_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
-    master_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
-
-    puppet_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
-    master_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
-
-    torque_on(puppet_bot_left)
-    torque_on(master_bot_left)
-    torque_on(puppet_bot_right)
-    torque_on(master_bot_right)
-
-    # move arms to starting position
-    start_arm_qpos = START_ARM_POSE[:6]
-    move_arms([master_bot_left, puppet_bot_left, master_bot_right, puppet_bot_right], [start_arm_qpos] * 4, move_time=1.5)
-    # move grippers to starting position
-    move_grippers([master_bot_left, puppet_bot_left, master_bot_right, puppet_bot_right], [MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE] * 2, move_time=0.5)
-
-
-    # press gripper to start data collection
-    # disable torque for only gripper joint of master robot to allow user movement
-
-    print(f'Close the gripper to start')
-    close_thresh = -0.3
-    pressed = False
-    while not pressed:
-        gripper_pos_left = get_arm_gripper_positions(master_bot_left)
-        gripper_pos_right = get_arm_gripper_positions(master_bot_right)
-        if (gripper_pos_left < close_thresh) and (gripper_pos_right < close_thresh):
-            pressed = True
-        time.sleep(DT/10)
-    torque_off(master_bot_left)
-    torque_off(master_bot_right)
-    print(f'Started!')
-
 def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_name, overwrite):
     print(f'Dataset name: {dataset_name}')
     
@@ -155,13 +118,14 @@ def capture_one_episode(dt, max_timesteps, camera_names, dataset_dir, dataset_na
 
         for name, array in data_dict.items():
             try:
+                print(f'Saving: {name}, {time.time() - t0:.1f} secs')
                 root[name][...] = array
             except TypeError as e:
                 print("Error occurred while setting value for name:", name)
                 print("Error message:", e)
                 # Optionally, you can raise the error again to propagate it further
                 exit(1)
-    print(f'Saving: {time.time() - t0:.1f} secs')
+    print(f'Total Saving Time: {time.time() - t0:.1f} secs')
 
     return True
 

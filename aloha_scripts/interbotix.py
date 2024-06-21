@@ -7,6 +7,7 @@ import sys
 from interbotix_xs_msgs.msg import *
 from interbotix_xs_msgs.srv import *
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64MultiArray
 
 ### @brief Standalone Module to control an Interbotix Arm and Gripper
 ### @param robot_model - Interbotix Arm model (ex. 'wx200' or 'vx300s')
@@ -71,13 +72,14 @@ class InterbotixArmXSInterface(object):
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     def publish_positions(self, positions, moving_time=None, accel_time=None, blocking=True):
         # self.set_trajectory_time(moving_time, accel_time)
-        # self.joint_commands = list(positions)
-        # joint_commands = JointGroupCommand(self.group_name, self.joint_commands)
-        # self.core.pub_group.publish(joint_commands)
+        self.joint_commands = list(positions)
+        msg = Float64MultiArray()
+        msg.data = self.joint_commands
+        self.core.publishSetPositions.publish(msg)
+        
         # if blocking:
         #     rospy.sleep(self.moving_time)
         # self.T_sb = mr.FKinSpace(self.robot_des.M, self.robot_des.Slist, self.joint_commands)
-        print("publish_positions")
 
     ### @brief Helper function to command the 'Profile_Velocity' and 'Profile_Acceleration' motor registers
     ### @param moving_time - duration in seconds that the robot should move
@@ -143,12 +145,11 @@ class InterbotixArmXSInterface(object):
     ### @param blocking - whether the function should wait to return control to the user until the robot finishes moving
     ### @return <bool> - True if position was commanded; False if it wasn't due to being outside limits
     def set_joint_positions(self, joint_positions, moving_time=None, accel_time=None, blocking=True):
-        return True
-        # if (self.check_joint_limits(joint_positions)):
-        #     self.publish_positions(joint_positions, moving_time, accel_time, blocking)
-        #     return True
-        # else:
-        #     return False
+        if (self.check_joint_limits(joint_positions)):
+            self.publish_positions(joint_positions, moving_time, accel_time, blocking)
+            return True
+        else:
+            return False
 
     ### @brief Command the arm to go to its Home pose
     ### @param moving_time - duration in seconds that the robot should move
@@ -341,6 +342,7 @@ class InterbotixRobotXSCore(object):
         # self.srv_get_info = rospy.ServiceProxy("/" + self.robot_name + "/get_robot_info", RobotInfo)
         # self.srv_torque = rospy.ServiceProxy("/" + self.robot_name + "/torque_enable", TorqueEnable)
         # self.srv_reboot = rospy.ServiceProxy("/" + self.robot_name + "/reboot_motors", Reboot)
+        self.publishSetPositions = rospy.Publisher('/set_positions', Float64MultiArray, queue_size=10)
         # self.pub_group = rospy.Publisher("/" + self.robot_name + "/commands/joint_group", JointGroupCommand, queue_size=1)
         # self.pub_single = rospy.Publisher("/" + self.robot_name + "/commands/joint_single", JointSingleCommand, queue_size=1)
         # self.pub_traj = rospy.Publisher("/" + self.robot_name + "/commands/joint_trajectory", JointTrajectoryCommand, queue_size=1)

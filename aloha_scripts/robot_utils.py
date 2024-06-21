@@ -97,8 +97,8 @@ class Recorder:
         if init_node:
             rospy.init_node('recorder', anonymous=True)
         rospy.Subscriber(f"/joint_states", JointState, self.puppet_state_cb)
-        rospy.Subscriber(f"/puppet_{side}/commands/joint_group", JointGroupCommand, self.puppet_arm_commands_cb)
-        rospy.Subscriber(f"/puppet_{side}/commands/joint_single", JointSingleCommand, self.puppet_gripper_commands_cb)
+        # rospy.Subscriber(f"/puppet_{side}/commands/joint_group", JointGroupCommand, self.puppet_arm_commands_cb)
+        # rospy.Subscriber(f"/puppet_{side}/commands/joint_single", JointSingleCommand, self.puppet_gripper_commands_cb)
         if self.is_debug:
             self.joint_timestamps = deque(maxlen=50)
             self.arm_command_timestamps = deque(maxlen=50)
