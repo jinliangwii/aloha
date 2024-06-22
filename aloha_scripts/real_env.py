@@ -137,6 +137,15 @@ def make_real_env(init_node, setup_robots=True):
     env = RealEnv(init_node, setup_robots)
     return env
 
+def get_action_value(t):
+    period = int(1/DT)  # 1000 timesteps to complete one full cycle (adjust as needed)
+    half_period = period / 2
+    if t % period < half_period:
+        # Ramp up from 0 to 0.5 over the first half period
+        return 1 * (t % half_period) / half_period
+    else:
+        # Ramp down from 0.5 to 0 over the second half period
+        return 1 * (1 - (t % half_period) / half_period)
 
 def test_real_teleop():
     """
@@ -170,13 +179,12 @@ def test_real_teleop():
         # plt_img = ax.imshow(ts.observation['images'][render_cam])
         # plt.ion()
 
-    for t in range(100000):
+    for t in range(int(1/DT) * 160):
         # action = get_action(master_bot_left, master_bot_right)
 
-        if t % 2 == 0:
-            action = [0, 0, 0, 0, 0, 0, 0, 0]
-        else:
-            action = [0.5, 0, 0, 0, 0, 0, 0, 0]
+        action_value = get_action_value(t)
+        action = [action_value, 0, 0, 0, 0, 0, 0, 0]
+        print(action)
 
         ts = env.step(action)
         episode.append(ts)
