@@ -50,7 +50,7 @@ class RealEnv:
     def __init__(self, init_node, setup_robots=True):
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.ik_solver = TracIKSolver(dir_path+"/urdf/S1.urdf", "base_link", "Link_EE", timeout=0.025, epsilon=5e-4, solve_type="Speed")
+        self.ik_solver = TracIKSolver(dir_path+"/urdf/S1.urdf", "base_link", "Link_EE", timeout=0.025, epsilon=5e-4, solve_type="Distance")
 
         print("Init bot")
         # self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
@@ -63,7 +63,6 @@ class RealEnv:
         if disableImageCollecting != "true":
             print( "init image recorder" )
             self.image_recorder = ImageRecorder(init_node=False)
-        # self.gripper_command = JointSingleCommand(name="gripper")
 
         self.qpos = [0,] * 8
 
@@ -191,7 +190,7 @@ class RealEnv:
         # I probably need to reverse this
         posInDegree = self.get_qpos()
         robotPosInRadian = [math.radians(angle) for angle in posInDegree[1:]]
-        print ( "ee joint positions:", robotPosInRadian )
+        # print ( "ee joint positions:", robotPosInRadian )
 
         # forward kinametics
         eef_matrix = self.ik_solver.fk(robotPosInRadian)
@@ -241,7 +240,7 @@ def test_real_teleop():
 
     # setup the environment
     env = make_real_env(init_node=True)
-    print("eef pose, gripper state: ", env.eef_pose, env.gripper_state)
+    # print("eef pose, gripper state: ", env.eef_pose, env.gripper_state)
 
     ts = env.reset(fake=True)
     episode = [ts]
@@ -253,11 +252,11 @@ def test_real_teleop():
 
     telemomaEmptyObs = AttrDict({
         'left': np.array([0, 0, 0, 0, 0, 0, 1]),
-        'right': np.array([0, 0.2, 0, 0, 0, 0, 1]),
+        'right': np.array([0, 0, 0, 0, 0, 0, 1]),
         'base': np.array([0, 0, 0])
     })
 
-    for t in range(int(1/DT) * 10):
+    for t in range(int(1/DT) * 30):
         
         telemomaAction = teleop.get_action(telemomaEmptyObs) # Get action from space mouse
         # print( telemomaAction )
@@ -273,7 +272,6 @@ def test_real_teleop():
         else:
             time.sleep(DT)
 
-        exit(0)
     # teleop.stop()
 
 
