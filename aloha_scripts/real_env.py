@@ -4,6 +4,16 @@ import collections
 import matplotlib.pyplot as plt
 import dm_env
 
+from telemoma.human_interface.teleop_policy import TeleopPolicy
+from importlib.machinery import SourceFileLoader
+from telemoma.utils.general_utils import AttrDict
+from telemoma.utils.transformations import euler_to_quat, quat_to_euler, add_angles, quat_diff
+
+# from s1_core import S1_Interface_Telemoma
+from tracikpy import TracIKSolver
+from tf import transformations as T
+import math
+
 from constants import DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_NORMALIZE_FN, PUPPET_GRIPPER_JOINT_UNNORMALIZE_FN
 from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN, PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
 from constants import PUPPET_GRIPPER_JOINT_OPEN, PUPPET_GRIPPER_JOINT_CLOSE
@@ -11,6 +21,9 @@ from robot_utils import Recorder, ImageRecorder
 from robot_utils import setup_master_bot, setup_puppet_bot, move_arms, move_grippers
 from interbotix import InterbotixManipulatorXS
 from interbotix_xs_msgs.msg import JointSingleCommand
+
+import os
+disableImageCollecting = "true" #os.getenv("Aloha_Disable_Image_Collection")
 
 class RealEnv:
     """
@@ -35,30 +48,36 @@ class RealEnv:
     """
 
     def __init__(self, init_node, setup_robots=True):
-        print("Init left puppet bot")
-        self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                       robot_name=f'puppet_left', init_node=init_node)
-        # self.puppet_bot_right = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                        # robot_name=f'puppet_right', init_node=False)
-        if setup_robots:
-            self.setup_robots()
 
-        self.recorder = Recorder('left', init_node=False)
-        self.image_recorder = ImageRecorder(init_node=False)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        self.ik_solver = TracIKSolver(dir_path+"/urdf/S1.urdf", "base_link", "Link_EE", timeout=0.025, epsilon=5e-4, solve_type="Speed")
+
+        print("Init bot")
+        # self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
+                                                        # robot_name=f'puppet_left', init_node=init_node)
+
+        # self.recorder = Recorder('left', init_node=False)
+
+        print( "disableImageCollecting: ", disableImageCollecting )
+
+        if disableImageCollecting != "true":
+            print( "init image recorder" )
+            self.image_recorder = ImageRecorder(init_node=False)
         # self.gripper_command = JointSingleCommand(name="gripper")
 
-    def setup_robots(self):
-        setup_puppet_bot(self.puppet_bot_left)
-        # setup_puppet_bot(self.puppet_bot_right)
+        self.qpos = [0,] * 8
 
     def get_qpos(self):
-        return self.recorder.qpos
+        return self.qpos
+        # return self.recorder.qpos
 
     def get_qvel(self):
-        return self.recorder.qvel
+        return [0,] * 8
+        # return self.recorder.qvel
 
     def get_effort(self):
-        return self.recorder.effort
+        return [0,] * 8
+        # return self.recorder.effort
 
     def get_images(self):
         return self.image_recorder.get_images()
@@ -86,66 +105,114 @@ class RealEnv:
         obs['qpos'] = self.get_qpos()
         obs['qvel'] = self.get_qvel()
         obs['effort'] = self.get_effort()
-        obs['images'] = self.get_images()
+        # if disableImageCollecting != "true" :
+            # obs['images'] = self.get_images()
         return obs
 
     def get_reward(self):
         return 0
 
     def reset(self, fake=False):
-        # if not fake:
-        #     # Reboot puppet robot gripper motors
-        #     self.puppet_bot_left.dxl.robot_reboot_motors("single", "gripper", True)
-        #     self.puppet_bot_right.dxl.robot_reboot_motors("single", "gripper", True)
-        #     self._reset_joints()
-        #     self._reset_gripper()
-        print("Reset robot")
+        
         return dm_env.TimeStep(
             step_type=dm_env.StepType.FIRST,
             reward=self.get_reward(),
             discount=None,
             observation=self.get_observation())
 
+    def process_action(self, action):
+        # convert deltas to absolute positions
+        pos_delta, euler_delta, gripper = action[:3], action[3:6], action[6]
+
+        pos_delta = [x * 0.1 for x in pos_delta]
+
+        cur_pose = self.eef_pose
+        cure_quat = cur_pose[3:]
+        cur_pos, cur_euler = cur_pose[:3], quat_to_euler(cur_pose[3:])
+
+        target_pos = cur_pos + pos_delta
+        target_euler = add_angles(euler_delta, cur_euler)
+        target_quat = euler_to_quat(target_euler)
+
+        # print("cur_euler: ", cur_euler)
+        # print("target_euler: ", target_euler)
+        # print("cur_quat: ", cure_quat)
+        # print("target_quat: ", target_quat)
+        # print("pos_delta: ", pos_delta)
+        # print("euler_delta: ", euler_delta)
+        # print("target_euler2: ", quat_to_euler(target_quat))
+
+        return target_pos, target_quat, gripper
+
     def step(self, action):
-        # state_len = int(len(action) / 2)
-        # left_action = action[:state_len]
-        # right_action = action[state_len:]
-        self.puppet_bot_left.arm.set_joint_positions(action, blocking=False)
-        # self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
-        # self.set_gripper_pose(left_action[-1], right_action[-1])
-        time.sleep(DT)
+        # print( "relative pose:", action)
+
+        pos, quat, gripper_act = self.process_action(action['right'])
+        # print( "target pose:", pos, quat, gripper_act)
+
+        # trac-ik
+        ee_matrix = T.quaternion_matrix(quat)
+        ee_matrix = np.dot(T.translation_matrix(pos), ee_matrix)
+        # print(ee_matrix)
+        
+        ik_solution = self.ik_solver.ik(ee_matrix, qinit=np.zeros(self.ik_solver.number_of_joints))
+        # print("ik_solution", type(ik_solution), ik_solution)
+        
+        if ik_solution is None:
+            print('No IK solution for ', pos, quat, self.eef_pose)
+            ik_solution = self.get_qpos()[1:]
+        else:
+            ik_solution = ik_solution.tolist()
+
+        # if abs(gripper_act - self.gripper_state) > 0.2:
+            # print (gripper_act, self.gripper_state)
+        
+        newpositions =  [gripper_act] + ik_solution
+
+        angles_degrees = [gripper_act] + [math.degrees(angle) for angle in newpositions[1:]]
+        # print( "target qpos(degree): ", angles_degrees)
+
+        # angles_degrees = [gripper_act] + [math.degrees(angle) for angle in reversed(newpositions[1:])]
+        print( "target qpos(degree): ", angles_degrees)
+        # exit(0)
+
+        # self.puppet_bot_left.arm.set_joint_positions(angles_degrees, blocking=False)
+        self.qpos = angles_degrees
+        
+        # time.sleep(DT)
         return dm_env.TimeStep(
             step_type=dm_env.StepType.MID,
             reward=self.get_reward(),
             discount=None,
             observation=self.get_observation())
 
+    @property
+    def eef_pose(self):
+        # I probably need to reverse this
+        posInDegree = self.get_qpos()
+        robotPosInRadian = [math.radians(angle) for angle in posInDegree[1:]]
+        print ( "ee joint positions:", robotPosInRadian )
 
-def get_action(master_bot_left, master_bot_right):
-    action = np.zeros(14) # 6 joint + 1 gripper, for two arms
-    # Arm actions
-    action[:6] = master_bot_left.dxl.joint_states.position[:6]
-    action[7:7+6] = master_bot_right.dxl.joint_states.position[:6]
-    # Gripper actions
-    action[6] = MASTER_GRIPPER_JOINT_NORMALIZE_FN(master_bot_left.dxl.joint_states.position[6])
-    action[7+6] = MASTER_GRIPPER_JOINT_NORMALIZE_FN(master_bot_right.dxl.joint_states.position[6])
+        # forward kinametics
+        eef_matrix = self.ik_solver.fk(robotPosInRadian)
 
-    return action
+        q = T.quaternion_from_matrix(eef_matrix)
+        t = T.translation_from_matrix(eef_matrix)
 
+        return np.concatenate((t, q))
+
+    @property
+    def gripper_state(self):
+        robotPos = self.get_qpos()
+        p = 0
+        if robotPos != None:
+            p = robotPos[0]
+
+        return p
 
 def make_real_env(init_node, setup_robots=True):
     env = RealEnv(init_node, setup_robots)
     return env
-
-def get_action_value(t):
-    period = int(1/DT)  # 1000 timesteps to complete one full cycle (adjust as needed)
-    half_period = period / 2
-    if t % period < half_period:
-        # Ramp up from 0 to 0.5 over the first half period
-        return 1 * (t % half_period) / half_period
-    else:
-        # Ramp down from 0.5 to 0 over the second half period
-        return 1 * (1 - (t % half_period) / half_period)
 
 def test_real_teleop():
     """
@@ -158,19 +225,24 @@ def test_real_teleop():
     This script will result in higher fidelity (obs, action) pairs
     """
 
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--teleop_config', type=str, help='Path to the teleop config to use.')
+    args = parser.parse_args()
+
     onscreen_render = True
     render_cam = 'cam_wrist'
 
-    # source of data
-    # master_bot_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                            #   robot_name=f'master_left', init_node=True)
-    # master_bot_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
-                                            #    robot_name=f'master_right', init_node=False)
-    # setup_master_bot(master_bot_left)
-    # setup_master_bot(master_bot_right)
+    teleop_config = SourceFileLoader('conf', args.teleop_config).load_module().teleop_config
+    teleop = TeleopPolicy(teleop_config)
+    teleop.start()
+
+    # s1Core = S1_Interface_Telemoma()
 
     # setup the environment
     env = make_real_env(init_node=True)
+    print("eef pose, gripper state: ", env.eef_pose, env.gripper_state)
+
     ts = env.reset(fake=True)
     episode = [ts]
     # setup visualization
@@ -179,14 +251,18 @@ def test_real_teleop():
         # plt_img = ax.imshow(ts.observation['images'][render_cam])
         # plt.ion()
 
-    for t in range(int(1/DT) * 160):
-        # action = get_action(master_bot_left, master_bot_right)
+    telemomaEmptyObs = AttrDict({
+        'left': np.array([0, 0, 0, 0, 0, 0, 1]),
+        'right': np.array([0, 0.2, 0, 0, 0, 0, 1]),
+        'base': np.array([0, 0, 0])
+    })
 
-        action_value = get_action_value(t)
-        action = [action_value, 0, 0, 0, 0, 0, 0, 0]
-        print(action)
+    for t in range(int(1/DT) * 10):
+        
+        telemomaAction = teleop.get_action(telemomaEmptyObs) # Get action from space mouse
+        # print( telemomaAction )
 
-        ts = env.step(action)
+        ts = env.step(telemomaAction)
         episode.append(ts)
 
         if onscreen_render:
@@ -196,6 +272,9 @@ def test_real_teleop():
             # plt.pause(DT)
         else:
             time.sleep(DT)
+
+        exit(0)
+    # teleop.stop()
 
 
 if __name__ == '__main__':
