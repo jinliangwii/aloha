@@ -50,13 +50,13 @@ class RealEnv:
     def __init__(self, init_node, setup_robots=True):
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.ik_solver = TracIKSolver(dir_path+"/urdf/S1.urdf", "base_link", "Link_EE", timeout=0.025, epsilon=5e-4, solve_type="Distance")
+        self.ik_solver = TracIKSolver(dir_path+"/urdf/S1.urdf", "base_link", "Link_EE", timeout=0.025, epsilon=5e-6, solve_type="Distance")
 
         print("Init bot")
-        # self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                        # robot_name=f'puppet_left', init_node=init_node)
+        self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
+                                                        robot_name=f'puppet_left', init_node=init_node)
 
-        # self.recorder = Recorder('left', init_node=False)
+        self.recorder = Recorder('left', init_node=False)
 
         print( "disableImageCollecting: ", disableImageCollecting )
 
@@ -64,19 +64,14 @@ class RealEnv:
             print( "init image recorder" )
             self.image_recorder = ImageRecorder(init_node=False)
 
-        self.qpos = [0,] * 8
-
     def get_qpos(self):
-        return self.qpos
-        # return self.recorder.qpos
+        return self.recorder.qpos
 
     def get_qvel(self):
-        return [0,] * 8
-        # return self.recorder.qvel
+        return self.recorder.qvel
 
     def get_effort(self):
-        return [0,] * 8
-        # return self.recorder.effort
+        return self.recorder.effort
 
     def get_images(self):
         return self.image_recorder.get_images()
@@ -113,41 +108,87 @@ class RealEnv:
 
     def reset(self, fake=False):
         
+        origin_qpos = [1,0,0,0,0,0,0,0]
+        self.puppet_bot_left.arm.set_joint_positions(origin_qpos, blocking=False)
+        self.wait_for_joint_positions(origin_qpos, timeout=30)
+
         return dm_env.TimeStep(
             step_type=dm_env.StepType.FIRST,
             reward=self.get_reward(),
             discount=None,
             observation=self.get_observation())
 
+    def remap_value(self, x):
+        if x > 0.5:
+            return 0.01
+        elif x < -0.5:
+            return -0.01
+        else:
+            return 0.0
+
     def process_action(self, action):
         # convert deltas to absolute positions
-        pos_delta, euler_delta, gripper = action[:3], action[3:6], action[6]
-
-        pos_delta = [x * 0.1 for x in pos_delta]
-
+        xyz_delta, euler_delta, gripper = action[:3], action[3:6], action[6]
+        # xyz_delta = [0, 0, -0.6]
+        xyz_delta = [self.remap_value(x) for x in xyz_delta]
+        xyz_delta = [0, 0, xyz_delta[2]]
+        euler_delta = [0, 0, 0.0]
+        # euler_delta = [x * 0.1 for x in euler_delta]
+        # print("xyz_delta: ", xyz_delta)
+        # print("euler_delta: ", euler_delta)
+        
         cur_pose = self.eef_pose
-        cure_quat = cur_pose[3:]
-        cur_pos, cur_euler = cur_pose[:3], quat_to_euler(cur_pose[3:])
+        cur_xyz = cur_pose[:3]
+        cur_quat = cur_pose[3:]
+        cur_euler = quat_to_euler(cur_quat)
+        # print("cur_xyz: ", cur_xyz)
+        # print("cur_euler: ", cur_euler)
 
-        target_pos = cur_pos + pos_delta
+        target_xyz = cur_xyz + xyz_delta
         target_euler = add_angles(euler_delta, cur_euler)
         target_quat = euler_to_quat(target_euler)
 
-        # print("cur_euler: ", cur_euler)
+        # print("target_xyz: ", target_xyz)
         # print("target_euler: ", target_euler)
-        # print("cur_quat: ", cure_quat)
-        # print("target_quat: ", target_quat)
-        # print("pos_delta: ", pos_delta)
-        # print("euler_delta: ", euler_delta)
         # print("target_euler2: ", quat_to_euler(target_quat))
 
-        return target_pos, target_quat, gripper
+        return target_xyz, target_quat, gripper
+
+    def format_angles(self, angles):
+        return [f"{angle:.2f}" for angle in angles]
+
+    def wait_for_joint_positions(self, target_angles, tolerance=0.01, timeout=DT, check_interval=0.1):
+        
+        start_time = time.time()
+        timed_out = False
+        
+        while True:
+            current_angles = self.get_qpos()
+            if all(abs(current - target) < tolerance for current, target in zip(current_angles, target_angles)):
+                total_time = time.time() - start_time
+                if timed_out:
+                    print(f"Reached target positions after timeout. Total time: {total_time:.2f} seconds.")
+                    print("Timeout: Target qpos:  ", self.format_angles(target_angles))
+                    print("Timeout: Current qpos: ", self.format_angles(self.get_qpos()))
+                    # exit(1)
+                    return False
+                else:
+                    print(f"Reached target positions in {total_time:.2f} seconds.")
+                    break
+            
+            if not timed_out and time.time() - start_time >= timeout:
+                timed_out = True
+                print(f"Timeout reached after {timeout} seconds without reaching the target positions.")
+                print("Timeout: qpos while timeout: ", self.format_angles(self.get_qpos()))
+                
+            
+            time.sleep(check_interval)
 
     def step(self, action):
         # print( "relative pose:", action)
 
         pos, quat, gripper_act = self.process_action(action['right'])
-        # print( "target pose:", pos, quat, gripper_act)
+        print( "target pose:", pos, quat, gripper_act)
 
         # trac-ik
         ee_matrix = T.quaternion_matrix(quat)
@@ -155,30 +196,30 @@ class RealEnv:
         # print(ee_matrix)
         
         ik_solution = self.ik_solver.ik(ee_matrix, qinit=np.zeros(self.ik_solver.number_of_joints))
-        # print("ik_solution", type(ik_solution), ik_solution)
+        print("ik_solution", type(ik_solution), ik_solution)
         
         if ik_solution is None:
             print('No IK solution for ', pos, quat, self.eef_pose)
-            ik_solution = self.get_qpos()[1:]
+            ik_solution =  [angle for angle in self.get_qpos()[1:]]
         else:
             ik_solution = ik_solution.tolist()
 
         # if abs(gripper_act - self.gripper_state) > 0.2:
             # print (gripper_act, self.gripper_state)
-        
-        newpositions =  [gripper_act] + ik_solution
 
-        angles_degrees = [gripper_act] + [math.degrees(angle) for angle in newpositions[1:]]
+        # cur_pos = self.get_qpos()
+        # spaceMouseX = action['right'][0] # forward(1) and backwards(-1)
+        # spaceMouseY = action['right'][1]  # Left(1) and right(-1)
+        spaceMouseZ = action['right'][2]  # up(1) and down(-1)
+
+        angles_degrees = [gripper_act] + [int(math.degrees(angle)) for angle in reversed(ik_solution)]
+        # print( "spaceMouseZ: ", spaceMouseZ, " target qpos(degree): ", angles_degrees)
         # print( "target qpos(degree): ", angles_degrees)
 
-        # angles_degrees = [gripper_act] + [math.degrees(angle) for angle in reversed(newpositions[1:])]
-        print( "target qpos(degree): ", angles_degrees)
-        # exit(0)
-
-        # self.puppet_bot_left.arm.set_joint_positions(angles_degrees, blocking=False)
-        self.qpos = angles_degrees
+        self.puppet_bot_left.arm.set_joint_positions(angles_degrees, blocking=False)
+        self.wait_for_joint_positions(angles_degrees)
         
-        # time.sleep(DT)
+        time.sleep(DT)
         return dm_env.TimeStep(
             step_type=dm_env.StepType.MID,
             reward=self.get_reward(),
@@ -189,7 +230,10 @@ class RealEnv:
     def eef_pose(self):
         # I probably need to reverse this
         posInDegree = self.get_qpos()
-        robotPosInRadian = [math.radians(angle) for angle in posInDegree[1:]]
+        # posInDegree = [1.0, 0, 44, 0, -58, 0, 13, 0]
+        # posInDegree = [1.0, 0, 0, 0, 0, 0, 0, 0]
+        robotPosInRadian = list([math.radians(angle) for angle in posInDegree[1:]])[::-1]
+        # print( "real qpos", robotPosInRadian )
         # print ( "ee joint positions:", robotPosInRadian )
 
         # forward kinametics
@@ -212,7 +256,7 @@ class RealEnv:
 def make_real_env(init_node, setup_robots=True):
     env = RealEnv(init_node, setup_robots)
     return env
-
+    
 def test_real_teleop():
     """
     Test bimanual teleoperation and show image observations onscreen.
@@ -256,7 +300,7 @@ def test_real_teleop():
         'base': np.array([0, 0, 0])
     })
 
-    for t in range(int(1/DT) * 30):
+    for t in range(int(1 / DT * 10) ):
         
         telemomaAction = teleop.get_action(telemomaEmptyObs) # Get action from space mouse
         # print( telemomaAction )

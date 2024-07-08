@@ -117,8 +117,8 @@
       <parent link="Link_Arm_0"/>
       <child link="Joint_Arm_0"/>
       <origin xyz="0.0368 0.077098 1.05493" rpy="0.0 0.0 0.0"/>
-      <axis xyz="0.0 0.7071067811865476 -0.7071067811865476"/>
-      <limit lower="-3.141593" upper="3.141593" effort="100" velocity="100"/>
+      <axis xyz="0.0 -0.7071067811865476 0.7071067811865476"/>
+      <limit lower="-2.79253" upper="2.79253" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_0_offset">
       <parent link="Joint_Arm_0"/>
@@ -158,7 +158,7 @@
       <child link="Joint_Arm_1"/>
       <origin xyz="0.0368 0.027954 1.104074" rpy="0.0 0.0 0.0"/>
       <axis xyz="-1.0 0.0 0.0"/>
-      <limit lower="-2.094395" upper="0.785398" effort="100" velocity="100"/>
+      <limit lower="-2.35619" upper="1.13446" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_1_offset">
       <parent link="Joint_Arm_1"/>
@@ -198,7 +198,7 @@
       <child link="Joint_Arm_2"/>
       <origin xyz="0.0368 -0.106043 1.238071" rpy="0.0 0.0 0.0"/>
       <axis xyz="0.0 -0.7071067811865476 0.7071067811865476"/>
-      <limit lower="-3.141593" upper="3.141593" effort="100" velocity="100"/>
+      <limit lower="-2.79253" upper="2.79253" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_2_offset">
       <parent link="Joint_Arm_2"/>
@@ -237,8 +237,8 @@
       <parent link="Link_Arm_3"/>
       <child link="Joint_Arm_3"/>
       <origin xyz="0.0368 -0.188456 1.320484" rpy="0.0 0.0 0.0"/>
-      <axis xyz="1.0 0.0 0.0"/>
-      <limit lower="-1.48353" upper="1.6580630000000003" effort="100" velocity="100"/>
+      <axis xyz="-1.0 0.0 0.0"/>
+      <limit lower="-2.47" upper="0.76" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_3_offset">
       <parent link="Joint_Arm_3"/>
@@ -278,7 +278,7 @@
       <child link="Joint_Arm_4"/>
       <origin xyz="0.0368 -0.306579 1.438606" rpy="0.0 0.0 0.0"/>
       <axis xyz="0.0 -0.7071067811865476 0.7071067811865476"/>
-      <limit lower="-3.141593" upper="3.141593" effort="100" velocity="100"/>
+      <limit lower="-2.79253" upper="2.79253" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_4_offset">
       <parent link="Joint_Arm_4"/>
@@ -317,8 +317,8 @@
       <parent link="Link_Arm_5"/>
       <child link="Joint_Arm_5"/>
       <origin xyz="0.0368 -0.340689 1.472717" rpy="0.0 0.0 0.0"/>
-      <axis xyz="1.0 0.0 0.0"/>
-      <limit lower="-0.872665" upper="0.872665" effort="100" velocity="100"/>
+      <axis xyz="-1.0 0.0 0.0"/>
+      <limit lower="-1.01229" upper="0.82030" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_5_offset">
       <parent link="Joint_Arm_5"/>
@@ -350,8 +350,8 @@
       <parent link="Link_Arm_6"/>
       <child link="Joint_Arm_6"/>
       <origin xyz="0.036755 -0.383084 1.515175" rpy="0.0 0.0 0.0"/>
-      <axis xyz="0.0 -0.7071067811865476 -0.7071067811865476"/>
-      <limit lower="-0.872665" upper="0.872665" effort="100" velocity="100"/>
+      <axis xyz="0.0 0.7071067811865476 0.7071067811865476"/>
+      <limit lower="-0.872665" upper="0.872665" effort="1" velocity="0.09"/>
    </joint>
    <joint type="fixed" name="Joint_Arm_6_offset">
       <parent link="Joint_Arm_6"/>
